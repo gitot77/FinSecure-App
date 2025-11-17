@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>FinSecure</title>
+
+  <!--
+       FinSecure prototype (single-file SPA)
+    - This version includes inline comments throughout HTML, CSS and JS.
+    - Comments explain intent, important variables, and flows developers are likely
+      to touch when editing (persistence, routing, authentication, OTP, renderers).
+    - SECURITY NOTE (demo only): localStorage persists data (including demo password).
+      Do NOT store real credentials in localStorage in production.
+  -->
+
+  <style>
+    /* ===========================
+        Design system / Theme
+       ===========================
+       These CSS variables define the color palette, spacing, and typography used
+       throughout the app. Designers and front-end devs can adjust these to change
+       the theme globally. */
+    :root {
+      --color-bg: #0b1c2e;
+      --color-bg-2: #0f2840;
+      --color-card: #112f4a;
+      --color-border: #1b4469;
+      --color-text: #e9f1fb;
+      --color-text-dim: #b9c7d6;
+      --color-accent: #3ea6ff;
+      --color-accent-2: #6bc4ff;
+      --color-orange: #ff7a1a;
+      --color-orange-2: #ff8f42;
+      --color-black: #0a0a0a;
+      --color-white: #ffffff;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow-1: 0 8px 24px rgba(0,0,0,0.3);
+      --shadow-2: 0 18px 40px rgba(0,0,0,0.45);
+      --space: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --font-sans: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+
+     /* Reset and base styles */
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(145deg, var(--color-bg), var(--color-bg-2) 65%);
+      color: var(--color-text);
+      font-family: var(--font-sans);
+    }
+
+    a {
+      color: var(--color-accent);
+      text-decoration: none;
+    }
+    a:hover { color: var(--color-accent-2); }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: var(--space-xl) var(--space);
+    }
+
+    /* =========================
+       Brand bar + logo + nav
+       - This is sticky so it remains visible while scrolling.
+       - brand-nav is hidden on public pages (login/signup/reset/otp).
+    ========================== */
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space);
+      padding: var(--space) var(--space);
+      border-bottom: 1px solid var(--color-border);
+      backdrop-filter: blur(6px);
+      position: sticky;
+      top: 0;
+      background: rgba(15, 40, 64, 0.55);
+      z-index: 1000;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-lock {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #173a5a, #26557f);
+      border: 2px solid #3ea6ff;
+      display: grid;
+      place-items: center;
+      box-shadow: var(--shadow-1);
+      position: relative;
+    }
+    .logo-lock::before {
+      content: "";
+      width: 16px;
+      height: 12px;
+      border-radius: 3px;
+      border: 2px solid var(--color-text);
+      position: absolute;
+      bottom: 8px;
+    }
+    .logo-lock::after {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--color-text);
+      position: absolute;
+      bottom: 10px;
+    }
+
+    .logo-img {
+      width: 38px;
+      height: 38px;
+      display: inline-block;
+      object-fit: contain;
+      border-radius: 8px;
+      background: transparent;
+      box-shadow: var(--shadow-1);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .logo-title {
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      font-size: 20px;
+    }
+    .brand-spacer { flex: 1; }
+
+    .brand-nav {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .nav-link {
+      padding: 8px 12px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      color: var(--color-text);
+      background: rgba(17,47,74,0.7);
+      cursor: pointer;
+    }
+    .nav-link.active {
+      background: var(--color-accent);
+      color: var(--color-black);
+      border-color: transparent;
+    }
+
+    /* =========================
+       Panels & form styles
+       - Panels are used as pages/containers.
+    ========================== */   
+    .panel {
+      margin-top: var(--space-xl);
+      background: linear-gradient(180deg, rgba(17,47,74,0.65), rgba(17,47,74,0.55));
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-1);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: var(--space-lg);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .panel-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .panel-body {
+      padding: var(--space-xl);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+    }
+    .form-grid.full { grid-template-columns: 1fr; }
+    .form-row { display: flex; flex-direction: column; gap: 8px; }
+    label { color: var(--color-text-dim); font-size: 14px; }
+    input {
+      padding: 12px 14px;
+      background: #0f243b;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-text);
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+    input:focus { border-color: var(--color-accent); }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space);
+      margin-top: var(--space-xl);
+    }
+    .btn {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-orange), var(--color-orange-2));
+      color: var(--color-black);
+      box-shadow: var(--shadow-1);
+    }
+    .btn-primary:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+      color: var(--color-black);
+      box-shadow: var(--shadow-1);
+    }
+    .btn-link {
+      background: transparent;
+      color: var(--color-accent);
+      border: 1px dashed var(--color-border);
+    }
+
+    .hint {
+      font-size: 13px;
+      color: var(--color-text-dim);
+    }
+    .error {
+      color: #ff6b6b;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .success {
+      color: #5fd38a;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    /* =========================
+       Dashboard styles
+       - Balance card, quick actions, visa card mockup, mini-widgets
+    ========================== */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: var(--space-xl);
+    }
+    .balance-card {
+      background: radial-gradient(1200px 400px at 10% 0%, #13375a 0%, #0f2840 80%);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-2);
+      position: relative;
+      overflow: hidden;
+    }
+    .balance-label { color: var(--color-text-dim); font-size: 14px; }
+    .balance-value {
+      margin-top: 8px;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+    }
+    .quick-actions {
+      margin-top: var(--space-lg);
+      display: flex;
+      gap: var(--space);
+      flex-wrap: wrap;
+    }
+    .qa {
+      background: rgba(17,47,74,0.65);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-weight: 600;
+      color: var(--color-text);
+      cursor: pointer;
+    }
+    .qa:hover { border-color: var(--color-accent); }
+
+    /* Visa card visual styles (purely decorative) */
+    .visa-card {
+      margin-top: var(--space-xl);
+      background: linear-gradient(135deg, #0c2238, #173a5a 60%, #2a5f90);
+      border: 1px solid #19527f;
+      border-radius: 24px;
+      padding: 22px;
+      color: var(--color-white);
+      width: 100%;
+      max-width: 480px;
+      box-shadow: var(--shadow-2);
+      position: relative;
+      overflow: hidden;
+    }
+    .visa-chip {
+      width: 50px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #d9d9d9, #9b9b9b);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .visa-contactless {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 30% 50%, transparent 8px, rgba(255,255,255,0.6) 9px, transparent 10px),
+        radial-gradient(circle at 50% 50%, transparent 4px, rgba(255,255,255,0.5) 5px, transparent 6px),
+        radial-gradient(circle at 70% 50%, transparent 2px, rgba(255,255,255,0.4) 3px, transparent 4px);
+      opacity: 0.7;
+    }
+    .visa-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space);
+    }
+    .visa-number {
+      margin-top: 16px;
+      font-size: 22px;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+    .visa-name-row {
+      margin-top: 14px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      color: #dbe6f3;
+    }
+    .visa-brand {
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+    .visa-logo {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: #ffd54f;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    .visa-emboss {
+      position: absolute;
+      right: -30px;
+      top: -30px;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(255,255,255,0.08), transparent);
+      border: 1px dashed rgba(255,255,255,0.15);
+      transform: rotate(15deg);
+    }
+
+    .visa-small-logo {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      width: 56px;
+      height: 32px;
+      object-fit: contain;
+      opacity: 0.95;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6));
+    }
+
+    .mini-widgets {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-xl);
+    }
+    .widget {
+      background: rgba(17,47,74,0.6);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: var(--space-lg);
+      box-shadow: var(--shadow-1);
+    }
+    .widget-title { font-weight: 700; margin-bottom: 8px; }
+
+    /* =========================
+       History page styles
+       - Search bar, transaction list/items
+    ========================== */
+    .history-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space);
+      margin-bottom: var(--space-lg);
+    }
+    .search-input {
+      flex: 1;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .search-input input { width: 100%; }
+    .history-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .tx-item {
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      align-items: center;
+      gap: var(--space);
+      background: rgba(17,47,74,0.55);
+      border: 1px solid var(--color-border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .tx-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #13375a, #1b4469);
+      display: grid;
+      place-items: center;
+      color: var(--color-white);
+      font-weight: 800;
+      border: 1px solid var(--color-border);
+    }
+    .tx-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .tx-title { font-weight: 700; }
+    .tx-sub { color: var(--color-text-dim); font-size: 13px; }
+    .tx-amount {
+      font-weight: 800;
+      letter-spacing: 0.3px;
+    }
+    .tx-amount.negative { color: #ff6b6b; }
+    .tx-amount.positive { color: #5fd38a; }
+
+     /* OTP / MFA inputs */
+    .otp-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 50px);
+      gap: 10px;
+      justify-content: start;
+      margin-top: var(--space);
+    }
+    .otp-input {
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 8px;
+      background: #0f243b;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text);
+    }
+
+    .terms-img {
+      margin-top: var(--space);
+      width: 100%;
+      height: 160px;
+      border-radius: var(--radius);
+      border: 1px dashed var(--color-border);
+      background:
+        linear-gradient(135deg, rgba(62,166,255,0.15), rgba(255,122,26,0.15)),
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 10px, rgba(255,255,255,0.08) 10px 20px);
+    }
+
+    .footer {
+      margin-top: var(--space-xl);
+      padding: var(--space-lg);
+      color: var(--color-text-dim);
+      font-size: 13px;
+      border-top: 1px solid var(--color-border);
+      text-align: center;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 900px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Brand bar with logo + simple nav -->
+  <div class="brand-bar">
+    <div class="logo">
+      <img src="lock logo.png" alt="FinSecure logo" class="logo-img" />
+      <div class="logo-title">FINSECURE</div>
+    </div>
+    <div class="brand-spacer"></div>
+
+    <!-- Top navigation. Hidden for unauthenticated pages by JS. -->
+    <div class="brand-nav" id="brand-nav" aria-hidden="true">
+      <a class="nav-link" href="#/dashboard" data-nav>Home</a>
+      <a class="nav-link" href="#/history" data-nav>Transactions</a>
+      <a class="nav-link" href="#/terms" data-nav>Terms</a>
+      <a class="nav-link" href="#" id="nav-logout">Logout</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Login Page -->
+    <section id="page-login" class="panel" hidden>
+      <div class="panel-header">
+        <span>🔐</span>
+        <div class="panel-title">Login</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-grid full">
+          <div class="form-row">
+            <label>Email</label>
+            <input id="login-email" type="email" placeholder="ex. finsecure@gmail.com" autocomplete="off" />
+          </div>
+          <div class="form-row">
+            <label>Password</label>
+            <input id="login-password" type="password" placeholder="ex. FinSecure123!" autocomplete="new-password" />
+            <div class="form-actions" style="justify-content:flex-start;">
+               <!-- "Forgot password?" navigates to reset page --> 
+              <button class="btn btn-link" id="link-forgot">Forgot password?</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-login">Login</button>
+          <div class="hint">
+            Don't have an account?
+            <a href="#/signup" id="link-signup">Signup</a>
+          </div>
+        </div>
+
+         <!-- login-message is used to display errors -->
+        <div id="login-message" class="error" style="display:none;"></div>
+
+        <div class="hint" style="margin-top:16px;">
+          For demo, try:
+          <strong>email:</strong> finsecure@gmail.com,
+          <strong>password:</strong> FinSecure123!
+        </div>
+      </div>
+    </section>
+
+    <!-- Signup Page -->
+    <section id="page-signup" class="panel" hidden>
+      <div class="panel-header">
+        <span>🧾</span>
+        <div class="panel-title">Signup</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-grid">
+          <div class="form-row">
+            <label>First name</label>
+            <input id="su-first" type="text" placeholder="ex. mark" autocomplete="given-name" />
+          </div>
+          <div class="form-row">
+            <label>Last name</label>
+            <input id="su-last" type="text" placeholder="ex. blue" autocomplete="family-name" />
+          </div>
+          <div class="form-row">
+            <label>Email</label>
+            <input id="su-email" type="email" placeholder="ex. finsecure@gmail.com" autocomplete="email" />
+          </div>
+          <div class="form-row">
+            <label>Phone</label>
+            <input id="su-phone" type="tel" placeholder="ex. 33344455" autocomplete="tel" />
+          </div>
+          <div class="form-row">
+            <label>Password</label>
+            <input id="su-password" type="password" placeholder="ex. FinSecure123!" autocomplete="new-password" />
+            <div class="hint">
+              Not less than 12 characters, including capital and small letters, numbers, and at least one special character.
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Confirm password</label>
+            <input id="su-confirm" type="password" placeholder="ex. FinSecure123!" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-signup">Signup</button>
+          <div class="hint">
+            By clicking this button, you agree with our
+            <a href="#/terms">terms and conditions</a>.
+          </div>
+        </div>
+        <div class="hint" style="margin-top:12px;">
+          Have an account? <a href="#/login">Login</a>
+        </div>
+        <div id="signup-message" class="error" style="display:none;"></div>
+        <div id="signup-success" class="success" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- Reset Page -->
+    <section id="page-reset" class="panel" hidden>
+      <div class="panel-header">
+        <span>🔁</span>
+        <div class="panel-title">Reset password</div>
+      </div>
+      <div class="panel-body">
+        <div class="form-grid full">
+          <div class="form-row">
+            <label>New password</label>
+            <input id="rp-password" type="password" placeholder="New password" autocomplete="new-password" />
+          </div>
+          <div class="form-row">
+            <label>Confirm password</label>
+            <input id="rp-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-reset">Confirm</button>
+          <div class="hint">After reset, you'll be redirected to login.</div>
+        </div>
+        <div id="reset-message" class="error" style="display:none;"></div>
+        <div id="reset-success" class="success" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- OTP / MFA Page -->
+    <section id="page-otp" class="panel" hidden>
+      <div class="panel-header">
+        <span>📧</span>
+        <div class="panel-title">Two-factor authentication</div>
+      </div>
+      <div class="panel-body">
+        <div class="hint" id="otp-instruction">
+          We've sent a 6-digit code to your email. Enter it below to continue.
+        </div>
+
+        <div class="hint" id="otp-hint" style="margin-top:8px;"></div>
+
+        <div class="otp-grid" id="otp-grid" aria-label="OTP inputs">
+        </div>
+
+        <div class="form-actions" style="margin-top:12px;">
+          <button class="btn btn-primary" id="btn-verify-otp">Verify</button>
+          <button class="btn btn-link" id="btn-resend-otp">Resend code</button>
+          <div class="hint" id="otp-timer" style="min-width:120px; text-align:right;"></div>
+        </div>
+        <div id="otp-message" class="error" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- Dashboard Page (Main Page)-->
+    <section id="page-dashboard" class="panel" hidden>
+      <div class="panel-header">
+        <span>🏠</span>
+        <div class="panel-title">Dashboard</div>
+      </div>
+      <div class="panel-body">
+        <div class="dashboard-grid">
+          <div>
+            <div class="balance-card">
+              <div class="balance-label">Available balance</div>
+              <div class="balance-value" id="balance-value">BHD 1,842.75</div>
+              <div class="quick-actions">
+                <div class="qa" id="qa-add-funds">Add funds</div>
+                <div class="qa" id="qa-transfer">Transfer</div>
+                <div class="qa" id="qa-pay-bills">Pay bills</div>
+                <div class="qa" id="qa-exchange">Exchange</div>
+              </div>
+
+              <div class="visa-card" aria-label="FinSecure Visa card">
+                <div class="visa-row">
+                  <div class="visa-chip" aria-hidden="true"></div>
+                  <div class="visa-contactless" title="Contactless" aria-hidden="true"></div>
+                </div>
+                <div class="visa-number" id="visa-number">4242 68•• ••21 9012</div>
+                <div class="visa-name-row">
+                  <div id="visa-name">MARK BLUE</div>
+                  <div class="visa-brand">
+                    <span class="visa-logo">VISA</span>
+                  </div>
+                </div>
+                <div class="visa-emboss" aria-hidden="true"></div>
+              </div>
+
+              <div class="hint" style="margin-top:12px;">
+                Card styling is a mock visual for the demo; it does not represent an actual issued card.
+              </div>
+            </div>
+          </div>
+
+          <div class="mini-widgets">
+            <div class="widget">
+              <div class="widget-title">Insights</div>
+              <div class="hint">
+                Bahrain’s fintech ecosystem is vibrant; this demo is localized for BHD currency and common flows.
+              </div>
+            </div>
+            <div class="widget">
+              <div class="widget-title">Cards & accounts</div>
+              <div class="hint">
+                Virtual cards and multi-currency control are common in modern digital banks; this demo illustrates similar UX patterns.
+              </div>
+            </div>
+            <div class="widget">
+              <div class="widget-title">Merchants</div>
+              <div class="hint">
+                Merchant payments, refunds and settlements are shown as mock transactions for visualization.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions" style="margin-top:32px;">
+          <a class="btn btn-secondary" href="#/history">View transactions</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Transactions History Page -->
+    <section id="page-history" class="panel" hidden>
+      <div class="panel-header">
+        <span>⌚</span>
+        <div class="panel-title">Transaction history</div>
+      </div>
+      <div class="panel-body">
+        <div class="history-toolbar">
+          <div class="search-input">
+            <input id="tx-search" type="text" placeholder="Search by merchant or note..." />
+            <button class="btn btn-secondary" id="btn-search">Search</button>
+          </div>
+          <div class="hint" id="tx-count">0 transactions</div>
+        </div>
+        <div class="history-list" id="tx-list">
+        </div>
+      </div>
+    </section>
+
+    <!-- Terms & Conditions -->
+    <section id="page-terms" class="panel" hidden>
+      <div class="panel-header">
+        <span>📜</span>
+        <div class="panel-title">Terms and conditions</div>
+      </div>
+      <div class="panel-body">
+        <p>
+          This prototype app uses mock data for demonstration purposes only. All names, card numbers, balances, and transactions are fictional and do not represent real accounts or financial activity. By continuing, you acknowledge this is a UI/UX sample intended to illustrate common fintech flows (authentication, MFA, dashboard, transfers, and history) and is not connected to any live banking systems or payment networks.
+        </p>
+
+        <p>
+          This fintech app is developed to be used as a testbed for automated DevSecOps pipelines. It is provided as a demonstration environment for CI/CD, security checks, and infrastructure automation; no real funds or live integrations are used here.
+        </p>
+
+        <div class="terms-img" aria-label="Placeholder illustration for terms content"></div>
+        <p class="hint" style="margin-top:12px;">
+          Bahrain’s ecosystem for fintech is supported by local initiatives fostering collaboration across industry and government.
+        </p>
+      </div>
+    </section>
+
+    <div class="footer" id="footer">
+      FinSecure Prototype • Made for demo purposes • Bahrain context: BHD, localized UI references only.
+    </div>
+  </div>
+
+  <script>
+    // =====================================
+    // SPA Router + State with localStorage persistence
+    // - Persist db (user, balance, transactions) to localStorage
+    // - Persist session (loggedIn/email) to localStorage so refresh keeps login (optional)
+    // - All major mutations call saveDB() to persist
+    // - NOTE (security): This is for demo only. localStorage is not safe for real credentials.
+    // =====================================
+
+    // -----------------------
+    // Storage keys & defaults
+    // -----------------------
+    // Keys used in localStorage so we can persist across page refreshes.
+    const STORAGE_DB_KEY = "finsecure_db_v1";
+    const STORAGE_SESSION_KEY = "finsecure_session_v1";
+
+    // DEFAULT_DB: base data used when no saved db exists. Kept as a JS constant.
+    // PayTabs's Developers can update this default dataset if they want different demo data.
+    const DEFAULT_DB = {
+      user: {
+        first: "Mark",
+        last: "Blue",
+        email: "finsecure@gmail.com",
+        phone: "33344455",
+        password: "FinSecure123!", // Demo password (insecure to persist in production)
+        mfaEnabled: true,
+      },
+      pendingReset: false,
+      pendingOTP: null,
+      balance: 1842.75,
+      transactions: [
+        { title: "City Market", note: "Groceries", amount: -22.95, date: "2025-10-28 18:23", ref: "CC-10281823" },
+        { title: "Fuel Station", note: "Petrol top-up", amount: -7.000, date: "2025-10-27 09:12", ref: "FS-10270912" },
+        { title: "Bank Transfer", note: "Transfer to Ali", amount: -50.000, date: "2025-10-26 21:05", ref: "BT-10262105" },
+        { title: "Settlement", note: "Freelance payout", amount: +120.000, date: "2025-10-26 15:42", ref: "SET-10261542" },
+        { title: "Local Diner", note: "Dinner", amount: -5.800, date: "2025-10-25 19:56", ref: "LD-10251956" },
+        { title: "Supermarket", note: "Household", amount: -18.200, date: "2025-10-24 13:14", ref: "SM-10241314" },
+        { title: "Mobile Recharge", note: "Top-up", amount: -3.000, date: "2025-10-23 20:44", ref: "MR-10232044" },
+        { title: "Utilities", note: "Electricity", amount: -28.350, date: "2025-10-23 08:10", ref: "UT-10230810" },
+        { title: "Coffee Shop", note: "Coffee", amount: -2.700, date: "2025-10-22 11:02", ref: "CS-10221102" },
+        { title: "Delivery Service", note: "Lunch order", amount: -6.900, date: "2025-10-21 13:47", ref: "DS-10211347" },
+        { title: "Bank Transfer", note: "Transfer from Sara", amount: +75.000, date: "2025-10-21 10:15", ref: "BT-10211015" },
+        { title: "Marketplace", note: "Electronics", amount: -49.990, date: "2025-10-20 21:33", ref: "MP-10202133" },
+        { title: "Telco", note: "Fiber bill", amount: -16.000, date: "2025-10-19 09:00", ref: "TEL-10210900" },
+        { title: "Fuel Station", note: "Petrol", amount: -6.500, date: "2025-10-18 08:40", ref: "FS-10180840" },
+        { title: "Cinema", note: "Tickets", amount: -14.000, date: "2025-10-17 20:10", ref: "CIN-10172010" },
+        { title: "Hotel Booking", note: "Weekend stay", amount: -122.000, date: "2025-10-16 14:22", ref: "HTL-10161422" },
+        { title: "Bank Transfer", note: "Rent", amount: -300.000, date: "2025-10-15 12:00", ref: "BT-10151200" },
+        { title: "Refund", note: "Accessory", amount: +9.990, date: "2025-10-14 17:11", ref: "RF-10141711" },
+        { title: "Burger", note: "Meal", amount: -4.600, date: "2025-10-13 19:29", ref: "BG-10131929" },
+        { title: "Pharmacy", note: "Health items", amount: -8.250, date: "2025-10-12 16:05", ref: "PH-10121605" },
+        { title: "Government", note: "Fee", amount: -2.000, date: "2025-10-12 09:30", ref: "GV-10120930" },
+        { title: "Settlement", note: "Payout", amount: +80.000, date: "2025-10-11 22:14", ref: "SET-10112214" },
+        { title: "Supermarket", note: "Groceries", amount: -27.300, date: "2025-10-11 15:49", ref: "SM-10111549" },
+        { title: "Mobile Recharge", note: "Mobile", amount: -5.000, date: "2025-10-10 10:22", ref: "MR-10101022" },
+        { title: "Corner Store", note: "Snacks", amount: -6.100, date: "2025-10-09 19:17", ref: "CS-10091917" },
+        { title: "Utilities", note: "Water", amount: -9.750, date: "2025-10-08 07:54", ref: "UT-10080754" },
+        { title: "Delivery Service", note: "Dinner", amount: -12.300, date: "2025-10-07 21:32", ref: "DS-10072132" },
+        { title: "Coffee Shop", note: "Coffee", amount: -3.100, date: "2025-10-06 08:44", ref: "CS-10060844" },
+        { title: "Fuel Station", note: "Petrol", amount: -6.800, date: "2025-10-05 12:06", ref: "FS-10051206" },
+        { title: "Cinema", note: "Tickets", amount: -10.000, date: "2025-10-04 20:05", ref: "CIN-10042005" },
+        { title: "Bank Transfer", note: "Transfer to Ahmed", amount: -40.000, date: "2025-10-03 16:12", ref: "BT-10031612" },
+        { title: "Settlement", note: "Payout", amount: +150.000, date: "2025-10-02 14:00", ref: "SET-10021400" },
+        { title: "Telco", note: "Mobile bill", amount: -11.000, date: "2025-10-01 09:15", ref: "TEL-10010915" },
+        { title: "Refund", note: "Order issue", amount: +4.500, date: "2025-09-30 13:44", ref: "RF-09301344" },
+        { title: "Local Diner", note: "Lunch", amount: -5.400, date: "2025-09-29 12:10", ref: "LD-09291210" },
+        { title: "Supermarket", note: "Groceries", amount: -21.800, date: "2025-09-28 17:41", ref: "SM-09281741" },
+        { title: "Fuel Station", note: "Petrol", amount: -7.200, date: "2025-09-27 18:22", ref: "FS-09271822" },
+        { title: "Delivery Service", note: "Snacks", amount: -3.900, date: "2025-09-26 19:40", ref: "DS-09261940" },
+        { title: "Coffee Shop", note: "Coffee", amount: -3.300, date: "2025-09-26 08:14", ref: "CS-09260814" },
+        { title: "Bank Transfer", note: "Transfer from Fatima", amount: +60.000, date: "2025-09-25 09:05", ref: "BT-09250905" },
+        { title: "Utilities", note: "Electricity", amount: -29.000, date: "2025-09-24 07:55", ref: "UT-09240755" },
+        { title: "City Market", note: "Groceries", amount: -17.650, date: "2025-09-23 18:38", ref: "CC-09231838" },
+        { title: "Mobile Recharge", note: "Mobile", amount: -3.000, date: "2025-09-22 21:12", ref: "MR-09222112" },
+        { title: "Settlement", note: "Freelance", amount: +95.000, date: "2025-09-21 16:40", ref: "SET-09211640" },
+        { title: "Cinema", note: "Tickets", amount: -12.000, date: "2025-09-20 20:20", ref: "CIN-09202020" },
+        { title: "Marketplace", note: "Books", amount: -18.750, date: "2025-09-19 22:02", ref: "MP-09192202" },
+        { title: "Pharmacy", note: "Essentials", amount: -9.200, date: "2025-09-18 10:44", ref: "PH-09181044" },
+        { title: "Telco", note: "Fiber bill", amount: -16.000, date: "2025-09-17 09:00", ref: "TEL-09170900" },
+        { title: "Local Diner", note: "Dinner", amount: -6.000, date: "2025-09-16 19:18", ref: "LD-09161918" },
+        { title: "Supermarket", note: "Groceries", amount: -23.450, date: "2025-09-15 14:56", ref: "SM-09151456" },
+        { title: "Delivery Service", note: "Lunch", amount: -8.100, date: "2025-09-14 12:30", ref: "DS-09141230" },
+        { title: "Fuel Station", note: "Petrol", amount: -6.600, date: "2025-09-13 07:50", ref: "FS-09130750" },
+        { title: "Refund", note: "Item return", amount: +12.000, date: "2025-09-12 11:22", ref: "RF-09121122" },
+        { title: "Bank Transfer", note: "Rent", amount: -300.000, date: "2025-09-11 12:00", ref: "BT-09111200" },
+        { title: "Settlement", note: "Payout", amount: +130.000, date: "2025-09-10 14:00", ref: "SET-09101400" }
+      ]
+    };
+
+    // Mutable state for runtime - db holds the app data, cloned from defaults initially.
+    let db = JSON.parse(JSON.stringify(DEFAULT_DB)); // deep clone so we can mutate safely.
+    // Simple session object for demo: tracks loggedIn and email
+    const session = {
+      loggedIn: false,
+      email: null
+    };
+
+    // -----------------------
+    // Persistence helpers
+    // - loadDB/saveDB: manage serialized DB in localStorage
+    // - loadSession/saveSession: persist login state 
+    // -----------------------
+    function saveDB() {
+      try {
+        localStorage.setItem(STORAGE_DB_KEY, JSON.stringify(db));
+      } catch (e) {
+        console.warn("Failed to save DB to localStorage", e);
+      }
+    }
+    function loadDB() {
+      try {
+        const raw = localStorage.getItem(STORAGE_DB_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        // Merge parsed onto db to avoid losing references to properties that code expects.
+        Object.keys(parsed).forEach(k => {
+          db[k] = parsed[k];
+        });
+      } catch (e) {
+        console.warn("Failed to load DB from localStorage", e);
+      }
+    }
+
+    function saveSession() {
+      try {
+        localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify({
+          loggedIn: session.loggedIn,
+          email: session.email
+        }));
+      } catch (e) {
+        console.warn("Failed to save session to localStorage", e);
+      }
+    }
+    function loadSession() {
+      try {
+        const raw = localStorage.getItem(STORAGE_SESSION_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        session.loggedIn = !!parsed.loggedIn;
+        session.email = parsed.email || null;
+      } catch (e) {
+        console.warn("Failed to load session from localStorage", e);
+      }
+    }
+    function clearSessionStorage() {
+      try {
+        localStorage.removeItem(STORAGE_SESSION_KEY);
+      } catch (e) {
+        console.warn("Failed to clear session storage", e);
+      }
+    }
+
+    // Utility to format BHD values consistently
+    const formatBHD = amt => {
+      const v = Math.abs(amt).toFixed(3);
+      return `BHD ${v}`;
+    };
+
+    // -----------------------
+    // DOM references for pages, nav, inputs and controls
+    // - Keep them at top to make it easy to find UI wiring.
+    // -----------------------
+    const pages = {
+      login: document.getElementById("page-login"),
+      signup: document.getElementById("page-signup"),
+      reset: document.getElementById("page-reset"),
+      otp: document.getElementById("page-otp"),
+      dashboard: document.getElementById("page-dashboard"),
+      history: document.getElementById("page-history"),
+      terms: document.getElementById("page-terms"),
+    };
+
+    // Brand nav control
+    const brandNav = document.getElementById("brand-nav");
+    const navLogout = document.getElementById("nav-logout");
+    const navLinks = document.querySelectorAll("[data-nav]");
+
+    // Inputs / Buttons
+    const loginEmail = document.getElementById("login-email");
+    const loginPassword = document.getElementById("login-password");
+    const btnLogin = document.getElementById("btn-login");
+    const loginMessage = document.getElementById("login-message");
+
+    const linkForgot = document.getElementById("link-forgot");
+    const linkSignup = document.getElementById("link-signup");
+
+    // Signup inputs
+    const suFirst = document.getElementById("su-first");
+    const suLast = document.getElementById("su-last");
+    const suEmail = document.getElementById("su-email");
+    const suPhone = document.getElementById("su-phone");
+    const suPassword = document.getElementById("su-password");
+    const suConfirm = document.getElementById("su-confirm");
+    const btnSignup = document.getElementById("btn-signup");
+    const signupMessage = document.getElementById("signup-message");
+    const signupSuccess = document.getElementById("signup-success");
+
+    // Reset inputs
+    const rpPassword = document.getElementById("rp-password");
+    const rpConfirm = document.getElementById("rp-confirm");
+    const btnReset = document.getElementById("btn-reset");
+    const resetMessage = document.getElementById("reset-message");
+    const resetSuccess = document.getElementById("reset-success");
+
+    // OTP / MFA elements
+    const btnVerifyOTP = document.getElementById("btn-verify-otp");
+    const btnResendOTP = document.getElementById("btn-resend-otp");
+    const otpMessage = document.getElementById("otp-message");
+    const otpGrid = document.getElementById("otp-grid");
+    const otpHint = document.getElementById("otp-hint");
+    const otpTimer = document.getElementById("otp-timer");
+
+    // Dashboard elements
+    const balanceValue = document.getElementById("balance-value");
+    const visaNumber = document.getElementById("visa-number");
+    const visaName = document.getElementById("visa-name");
+
+    // Transaction search/list
+    const txSearch = document.getElementById("tx-search");
+    const btnSearch = document.getElementById("btn-search");
+    const txList = document.getElementById("tx-list");
+    const txCount = document.getElementById("tx-count");
+
+    // App session mock (otp timer)
+    let otpIntervalId = null;
+    const OTP_RESEND_SECONDS = 60;
+    let otpRemaining = 0;
+
+    // -------------------------------------------------------
+    // Helpers: clear sensitive inputs (improves security/UX)
+    // -------------------------------------------------------
+    function clearLoginInputs() {
+      loginPassword.value = "";
+    }
+    function clearResetInputs() {
+      rpPassword.value = "";
+      rpConfirm.value = "";
+    }
+    function clearSignupPasswords() {
+      suPassword.value = "";
+      suConfirm.value = "";
+    }
+    function clearOtpInputs() {
+      Array.from(otpGrid.children).forEach(inp => inp.value = "");
+    }
+
+    // -------------------------------------------------------
+    // Brand nav visibility: only show when logged in
+    // -------------------------------------------------------
+    function updateBrandNavVisibility() {
+      if (session.loggedIn) {
+        brandNav.style.display = "flex";
+        brandNav.setAttribute("aria-hidden", "false");
+      } else {
+        brandNav.style.display = "none";
+        brandNav.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    // =======================
+    // OTP UI / lifecycle
+    // - buildOTPInputs: creates 6 inputs and wires basic keyboard navigation
+    // - sendOTP: generates a demo code, stores in db.pendingOTP and starts resend timer
+    // - startOtpCountdown / cancelOtpTimer: manage resend cooldown UI
+    // =======================
+    function buildOTPInputs() {
+      otpGrid.innerHTML = "";
+      for (let i = 0; i < 6; i++) {
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.maxLength = 1;
+        inp.className = "otp-input";
+        inp.inputMode = "numeric";
+        inp.autocomplete = "one-time-code";
+
+        // When user types, automatically move to next input
+        inp.addEventListener("input", (e) => {
+          const val = e.target.value;
+          if (val && val.length > 0) {
+            const next = otpGrid.children[i + 1];
+            if (next) next.focus();
+          }
+        });
+
+         // Handle backspace to move focus left (and clear)
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Backspace" && !e.target.value) {
+            const prev = otpGrid.children[i - 1];
+            if (prev) {
+              prev.focus();
+              prev.value = "";
+            }
+          }
+        });
+        otpGrid.appendChild(inp);
+      }
+      if (otpGrid.children[0]) otpGrid.children[0].focus();
+    }
+
+    function startOtpCountdown() {
+      otpRemaining = OTP_RESEND_SECONDS;
+      btnResendOTP.disabled = true;
+      updateOtpTimerText();
+      if (otpIntervalId) clearInterval(otpIntervalId);
+      otpIntervalId = setInterval(() => {
+        otpRemaining--;
+        if (otpRemaining <= 0) {
+          clearInterval(otpIntervalId);
+          otpIntervalId = null;
+          btnResendOTP.disabled = false;
+          otpTimer.textContent = "";
+          btnResendOTP.textContent = "Resend code";
+        } else {
+          updateOtpTimerText();
+        }
+      }, 1000);
+    }
+
+    function updateOtpTimerText() {
+      btnResendOTP.textContent = `Resend (${otpRemaining}s)`;
+      otpTimer.textContent = `You can request a new code in ${otpRemaining}s`;
+    }
+
+    function sendOTP() {
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      db.pendingOTP = code;
+      otpMessage.style.display = "none";
+      otpHint.textContent = `Demo: OTP sent to ${session.email || db.user.email} is ${code}`;
+      clearOtpInputs();
+      startOtpCountdown();
+      // Persist pendingOTP so refresh won't lose the generated code in demo
+      saveDB();
+    }
+
+    function cancelOtpTimer() {
+      if (otpIntervalId) {
+        clearInterval(otpIntervalId);
+        otpIntervalId = null;
+      }
+      otpTimer.textContent = "";
+      btnResendOTP.disabled = false;
+      btnResendOTP.textContent = "Resend code";
+    }
+
+    // -------------------------------------------------------
+    // Render helpers
+    // - renderCard: update visa name & masked number
+    // - renderBalance: refresh displayed balance
+    // - renderTransactions: populate tx list
+    // -------------------------------------------------------
+    function renderCard() {
+      const name = session.loggedIn ? (db.user.first + " " + db.user.last).toUpperCase() : "MARK BLUE";
+      visaName.textContent = name;
+      visaNumber.textContent = "4242 68•• ••21 9012";
+    }
+    function renderBalance() {
+      balanceValue.textContent = `BHD ${db.balance.toFixed(2)}`;
+    }
+    function renderTransactions(filter = "") {
+      txList.innerHTML = "";
+      const data = db.transactions.filter(tx => {
+        const key = `${tx.title} ${tx.note} ${tx.ref}`.toLowerCase();
+        return key.includes(filter.toLowerCase());
+      });
+
+      // Build DOM nodes for each transaction (simple card)
+      data.forEach(tx => {
+        const item = document.createElement("div");
+        item.className = "tx-item";
+
+        const icon = document.createElement("div");
+        icon.className = "tx-icon";
+        icon.textContent = tx.title.slice(0,2).toUpperCase();
+
+        const meta = document.createElement("div");
+        meta.className = "tx-meta";
+        const t = document.createElement("div");
+        t.className = "tx-title";
+        t.textContent = tx.title;
+        const s = document.createElement("div");
+        s.className = "tx-sub";
+        s.textContent = `${tx.note} • ${tx.date} • Ref: ${tx.ref}`;
+        meta.appendChild(t);
+        meta.appendChild(s);
+
+        const amt = document.createElement("div");
+        amt.className = "tx-amount " + (tx.amount < 0 ? "negative" : "positive");
+        amt.textContent = (tx.amount < 0 ? "-" : "+") + formatBHD(tx.amount);
+
+        item.appendChild(icon);
+        item.appendChild(meta);
+        item.appendChild(amt);
+
+        txList.appendChild(item);
+      });
+      txCount.textContent = `${data.length} transactions`;
+    }
+
+    // -------------------------------------------------------
+    // Password policy check
+    // - Use this to validate password complexity for signup/reset flows
+    // -------------------------------------------------------
+    function checkPasswordPolicy(pw) {
+      const long = pw.length >= 12;
+      const upper = /[A-Z]/.test(pw);
+      const lower = /[a-z]/.test(pw);
+      const digit = /[0-9]/.test(pw);
+      const special = /[^A-Za-z0-9]/.test(pw);
+      return long && upper && lower && digit && special;
+    }
+
+    // -------------------------------------------------------
+    // Routing & page control
+    // - showPage handles access control (protects dashboard/history)
+    // - handleRoute reads location.hash and shows appropriate page
+    // -------------------------------------------------------
+    function showPage(name) {
+        // Protected pages redirect to login when not authenticated
+      const protectedPages = ["dashboard", "history"];
+      if (protectedPages.includes(name) && !session.loggedIn) {
+        location.hash = "#/login";
+        return;
+      }
+
+      // Hide all pages then show the requested one
+      Object.values(pages).forEach(p => p.hidden = true);
+      if (pages[name]) pages[name].hidden = false;
+
+      // Mark nav links active (if nav is visible)
+      navLinks.forEach(link => {
+        const href = link.getAttribute("href");
+        const target = href ? href.replace("#/", "") : "";
+        link.classList.toggle("active", target === name);
+      });
+
+       // Clear sensitive inputs on transitions to reduce leaked credentials in UI
+      if (name !== "login") {
+        clearLoginInputs();
+      }
+      if (name !== "reset") {
+        clearResetInputs();
+      }
+      if (name !== "signup") {
+        clearSignupPasswords();
+      }
+
+      // When leaving OTP page cancel timer and remove inputs
+      if (name !== "otp") {
+        cancelOtpTimer();
+        otpHint.textContent = "";
+        if (otpGrid) otpGrid.innerHTML = "";
+      }
+
+      // Page-specific setup
+      if (name === "otp") {
+        buildOTPInputs();
+        sendOTP();
+      }
+      if (name === "dashboard") {
+        renderBalance();
+        renderCard();
+      }
+      if (name === "history") {
+        renderTransactions();
+      }
+
+      updateBrandNavVisibility();
+    }
+
+    // Choose default route: if no hash and session.loggedIn show dashboard; otherwise login.
+    function handleRoute() {
+      const hash = location.hash.replace("#/", "");
+      const name = hash || (session.loggedIn ? "dashboard" : "login");
+      showPage(name);
+    }
+
+    // Wire routing events
+    window.addEventListener("hashchange", handleRoute);
+    window.addEventListener("load", () => {
+      // load persisted DB & session first
+      loadDB();
+      loadSession();
+
+      // If first time (no stored db) persist default so subsequent refreshes keep changes
+      // (this won't overwrite an existing DB because loadDB only merges if something present)
+      saveDB();
+
+      // If session indicates logged in, keep logged-in state across refresh
+      updateBrandNavVisibility();
+
+      // If user already logged in and no explicit route, show dashboard
+      handleRoute();
+      renderCard();
+      updateBrandNavVisibility();
+    });
+
+    // -------------------------------------------------------
+    // Authentication / Events
+    // -------------------------------------------------------
+
+    // Login button click handler
+    btnLogin.addEventListener("click", () => {
+      loginMessage.style.display = "none";
+      const email = (loginEmail.value || "").trim();
+      const pw = loginPassword.value || "";
+
+      if (!email || !pw) {
+        loginMessage.textContent = "Please enter email and password.";
+        loginMessage.style.display = "block";
+        return;
+      }
+
+      // Simple credential check against db.user (case-insensitive email)
+      if (email.toLowerCase() === (db.user.email || "").toLowerCase() && pw === db.user.password) {
+        session.email = email;
+        // persist session state
+        session.loggedIn = false; // will set true after MFA or directly if not required
+        saveSession();
+
+        if (db.user.mfaEnabled) {
+          location.hash = "#/otp";
+        } else {
+          session.loggedIn = true;
+          saveSession();
+          updateBrandNavVisibility();
+          location.hash = "#/dashboard";
+        }
+      } else {
+        loginMessage.textContent = "Invalid email or password.";
+        loginMessage.style.display = "block";
+        clearLoginInputs();
+      }
+    });
+
+    // "Forgot password" handler: set pendingReset in db and go to reset page
+    linkForgot.addEventListener("click", (e) => {
+      e.preventDefault();
+      db.pendingReset = true;
+      saveDB();
+      clearResetInputs();
+      location.hash = "#/reset";
+    });
+
+    // Signup handler: validate, save to db and persist
+    btnSignup.addEventListener("click", () => {
+      signupMessage.style.display = "none";
+      signupSuccess.style.display = "none";
+
+      const first = (suFirst.value || "").trim();
+      const last = (suLast.value || "").trim();
+      const email = (suEmail.value || "").trim();
+      const phone = (suPhone.value || "").trim();
+      const pw = suPassword.value || "";
+      const cf = suConfirm.value || "";
+
+      if (!first || !last || !email || !phone || !pw || !cf) {
+        signupMessage.textContent = "Please complete all fields.";
+        signupMessage.style.display = "block";
+        return;
+      }
+      if (!checkPasswordPolicy(pw)) {
+        signupMessage.textContent = "Password must be >= 12 characters and include uppercase, lowercase, number, and special character.";
+        signupMessage.style.display = "block";
+        return;
+      }
+      if (pw !== cf) {
+        signupMessage.textContent = "Passwords do not match.";
+        signupMessage.style.display = "block";
+        return;
+      }
+
+      // Save to mock db and persist
+      db.user = { first, last, email, phone, password: pw, mfaEnabled: true };
+      saveDB();
+
+      signupSuccess.textContent = "Signup successful. Redirecting to login...";
+      signupSuccess.style.display = "block";
+
+      setTimeout(() => {
+        suPassword.value = "";
+        suConfirm.value = "";
+        location.hash = "#/login";
+      }, 1200);
+    });
+
+    btnReset.addEventListener("click", () => {
+      resetMessage.style.display = "none";
+      resetSuccess.style.display = "none";
+
+      const pw = rpPassword.value || "";
+      const cf = rpConfirm.value || "";
+
+      if (!checkPasswordPolicy(pw)) {
+        resetMessage.textContent = "Password must be >= 12 characters and include uppercase, lowercase, number, and special character.";
+        resetMessage.style.display = "block";
+        return;
+      }
+      if (pw !== cf) {
+        resetMessage.textContent = "Passwords do not match.";
+        resetMessage.style.display = "block";
+        return;
+      }
+
+      db.user.password = pw;
+      db.pendingReset = false;
+      saveDB();
+
+      resetSuccess.textContent = "Password reset successful. Redirecting to login...";
+      resetSuccess.style.display = "block";
+
+      setTimeout(() => {
+        clearResetInputs();
+        location.hash = "#/login";
+      }, 1200);
+    });
+
+    btnVerifyOTP.addEventListener("click", () => {
+      otpMessage.style.display = "none";
+      const code = Array.from(otpGrid.children).map(i => i.value).join("");
+      if (code.length !== 6) {
+        otpMessage.textContent = "Please enter the 6-digit code.";
+        otpMessage.style.display = "block";
+        return;
+      }
+      if (code !== db.pendingOTP) {
+        otpMessage.textContent = "Incorrect code. Try again or resend.";
+        otpMessage.style.display = "block";
+        clearOtpInputs();
+        return;
+      }
+      // Success
+      session.loggedIn = true;
+      session.email = session.email || db.user.email;
+      db.pendingOTP = null;
+      saveDB();
+      saveSession();
+      cancelOtpTimer();
+      updateBrandNavVisibility();
+      location.hash = "#/dashboard";
+    });
+
+    btnResendOTP.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (btnResendOTP.disabled) return;
+      sendOTP();
+    });
+
+    // Logout handler (top nav)
+    navLogout.addEventListener("click", (e) => {
+      e.preventDefault();
+      session.loggedIn = false;
+      session.email = null;
+      clearSessionStorage();
+      clearLoginInputs();
+      clearResetInputs();
+      clearSignupPasswords();
+      cancelOtpTimer();
+      db.pendingOTP = null;
+      saveDB(); // persist cleared pendingOTP
+      otpHint.textContent = "";
+      updateBrandNavVisibility();
+      location.hash = "#/login";
+    });
+
+    navLinks.forEach(link => {
+      link.addEventListener("click", (e) => {
+        const href = link.getAttribute("href");
+        if (!href || href === "#") return;
+        const target = href.replace("#/", "");
+        if ((target === "dashboard" || target === "history") && !session.loggedIn) {
+          e.preventDefault();
+          location.hash = "#/login";
+        }
+      });
+    });
+
+    // Transactions search
+    btnSearch.addEventListener("click", () => {
+      renderTransactions(txSearch.value || "");
+    });
+    txSearch.addEventListener("input", () => {
+      renderTransactions(txSearch.value || "");
+    });
+
+    // Quick actions (mock) — persist changes
+    document.getElementById("qa-add-funds").addEventListener("click", () => {
+      db.balance += 50.00;
+      // persist balance
+      saveDB();
+      renderBalance();
+    });
+    document.getElementById("qa-transfer").addEventListener("click", () => {
+      db.balance -= 20.00;
+      db.transactions.unshift({
+        title: "Bank Transfer",
+        note: "Transfer to Friend",
+        amount: -20.00,
+        date: new Date().toISOString().slice(0,16).replace("T"," "),
+        ref: "BT-" + Math.random().toString(36).slice(2,8).toUpperCase()
+      });
+      saveDB();
+      renderBalance();
+    });
+    document.getElementById("qa-pay-bills").addEventListener("click", () => {
+      db.balance -= 12.300;
+      db.transactions.unshift({
+        title: "Utilities",
+        note: "Internet",
+        amount: -12.300,
+        date: new Date().toISOString().slice(0,16).replace("T"," "),
+        ref: "UT-" + Math.random().toString(36).slice(2,8).toUpperCase()
+      });
+      saveDB();
+      renderBalance();
+    });
+    document.getElementById("qa-exchange").addEventListener("click", () => {
+      db.balance += 5.250;
+      db.transactions.unshift({
+        title: "FX Exchange",
+        note: "USD to BHD",
+        amount: +5.250,
+        date: new Date().toISOString().slice(0,16).replace("T"," "),
+        ref: "FX-" + Math.random().toString(36).slice(2,8).toUpperCase()
+      });
+      saveDB();
+      renderBalance();
+    });
+
+    // Expose a quick reset helper in console for devs:
+    // localStorage.removeItem("finsecure_db_v1"); localStorage.removeItem("finsecure_session_v1"); location.reload();
+  </script>
+</body>
+</html>
